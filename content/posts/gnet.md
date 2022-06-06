@@ -292,24 +292,26 @@ wss := &wsServer{
 
 Now, use `wscat` to connect multiple clients to your running program and see messages sent from one client broadcasted to every other client, _including_ yourself!
 
-## differences from net/http
+## differences from `net/http`
 
-The basic difference is in two places: the way IO is handled, and the way concurrent connections are handled.
+The basic difference is in two places: the way IO is handled, and the way concurrent connections are handled (which is kinda the same thing but bear with me).
 
-net/http servers tend to spawn one goroutine per HTTP request. In Go, given the nature of goroutines and the way they are multiplexed on top of threads by the runtime scheduler, this tends to work well by default. However, at a very large scale, it tends to be a bottleneck since goroutines start with a 2kb stack.
+`net/http` applications spawn one goroutine per HTTP request. In Go, given the nature of goroutines and the way they are multiplexed on top of threads by the runtime scheduler, this tends to work well by default. However, at a very large scale, it tends to be a bottleneck since goroutines start with a 2kb stack.
 
-gnet however, takes a different approach. Instead of spawning a goroutine per request, gnet instantiates a poller: either epoll or kqueue depending on your OS (linux or bsd respectively). Then, instead of reading from a connection on a goroutine, gnet just delegates this work to the OS, who will notify when a given connection sends data on the wire.
+gnet, however, takes a different approach. Instead of spawning a goroutine per request, gnet instantiates a poller: either epoll or kqueue depending on your OS (linux or bsd respectively). Then, instead of reading from a connection on a goroutine, gnet just delegates this work to the OS, who will notify when a given connection sends data on the wire.
 
-This is why blocking in net/http is OK, while blocking in gnet is a crime. When you block in net/http, you are blocking an independent unit of computation. No other request will be impacted. In gnet, you are blocking the event loop. No other request can be served. This is analogous to how nodejs deals with concurrency.
+This is why blocking in `net/http` is OK, while blocking in gnet is a felony. When you block in `net/http`, you are blocking an independent unit of computation, i.e. a single goroutine. No other request will be impacted. In gnet, you are blocking the event loop. No other request can be served. No other iteration of the event loop can happen.
 
 If you want to see this in action, try putting a 10s delay in either `OnTraffic` or `broadcastService` with something like `<-time.After(10*time.Second)`. See that nothing else can happen, including `OnTick`.
 
-## where is it useful
+In short: if using gnet, don't block. It has a goroutine pool for this purpose. If you need blocking work, offload it to a goroutine, or use a goroutine pool.
+
+## where is it useful?
 
 gnet is useful for applications where the network might be a bottleneck, or where you need to extract the most out of each concurrent connection. Real time applications that need a low memory footprint might benefit more from gnet than other types of web apps.
 
-If you need to serve hundreds of thousands or millions of request with commodity hardware, and you need to do so with as little latency as possible, then gnet is for you. If you don't need it, though, you don't need it: gnet is a networking framework, not an HTTP or application framework. Of course, you can build HTTP or web apps on top of it, but the effort to do so is still necessary, whereas using e.g. net/http would allow one to move faster for certain kinds of applications, particularly HTTP, since it's a battle tested, stable and spec-compliant.
+If you need to serve hundreds of thousands or millions of request with commodity hardware, and you need to do so with as little latency as possible, then gnet is for you. If you don't need it, though, you don't need it: gnet is a networking framework, not an HTTP or application framework. Of course, you can build HTTP or web apps on top of it, but the effort to do so is still necessary, whereas using e.g. `net/http` would allow one to move faster for certain kinds of applications, particularly HTTP, since it's a battle tested, stable and spec-compliant implementation.
 
-That being said, I feel gnet shines brighter when paired with Redis. I'm planning to start a low latency, highly scalable pub/sub broker with a websocket interface leveraging Redis PubSub and gnet's networking capabilities and see how it fares versus other alternatives, such as Elixir's Phoenix or Erlang's EMQ.
+[//]: # (That being said, I feel gnet shines brighter when paired with Redis. I'm planning to start a low latency, highly scalable pub/sub broker with a websocket interface leveraging Redis PubSub and gnet's networking capabilities and see how it fares versus other alternatives, such as Elixir's Phoenix or Erlang's EMQ.)
 
-Since gnet is event-loop based, I wonder if a technology like LiveView built on top of these would be scalable as well. Just thinking out loud, though.
+[//]: # (Since gnet is event-loop based, I wonder if a technology like LiveView built on top of these would be scalable as well. Just thinking out loud, though.)
