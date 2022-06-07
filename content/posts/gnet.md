@@ -20,6 +20,8 @@ Gnet does not offer parsers for protocols such as HTTP or websockets. As such, i
 
 gnet has a [websocket example](https://github.com/gnet-io/gnet-examples/blob/v2/websocket/server/websocket.go). We'll be implementing this example, although changing a few things that the author judges necessary. Mostly personal preferences though!
 
+If you're anxious, [here's the link](https://github.com/nubunto/gnet-websocket-broadcast) for the repo with the code that we'll be building next.
+
 We'll start in a single file called `websocket.go` that will be a main package. Let's define `wsServer`, which will be our websocket server:
 
 ```go
